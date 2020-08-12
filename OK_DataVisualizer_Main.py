@@ -1,12 +1,10 @@
 from nptdms import TdmsFile
-from array import *
 import numpy as np
+import os
+import itertools
 import h5py
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from matplotlib.backends.backend_pdf import PdfPages
-import os
-import itertools
 
 
 class fileOpener ():
@@ -14,6 +12,33 @@ class fileOpener ():
         #Constructor for the the fileOpener class. Initializes the data dictionaries and the directory name
         self.knee_data = {}
         self.directory = directory
+
+    def writeHDF5 (self):
+        #Writies all the data as datasets in a HDF5 file
+        with h5py.File("KinematicsData.hdf5", "w") as f:
+            for k, v in self.knee_data.items():
+                f.create_dataset(k, data = np.array(v))
+
+    def readTDMS (self):
+        for root, dirs, files in os.walk(self.directory):
+            for filename in files:
+                if(filename.endswith("main_processed.tdms")):
+                    print(os.path.join(root, filename))
+                    with TdmsFile.open(os.path.join(root, filename)) as tdms_file:
+                        StateJCSLoad = {}
+                        StateKneeJCS = {}
+                        for (c, d, e) in zip(tdms_file["State.JCS"].channels(), tdms_file["State.Knee JCS"].channels(), tdms_file["State.JCS Load"].channels()):
+                            StateKneeJCS_ChName, StateKneeJCS_data, StateKneeJCS_properties = d.name, np.array(d[:]), d.properties
+                            StateKneeJCS[StateKneeJCS_ChName] = {'properties': StateKneeJCS_properties, 'data': StateKneeJCS_data}
+                            #print(StateKneeJCS_properties)
+                            #print(StateKneeJCS_ChName + " data:\n" + ','.join(str(x) for x in StateKneeJCS_data))
+
+                            StateJCSLoad_ChName, StateJCSLoad_data, StateJCSLoad_properties = e.name, np.array(e[:]), e.properties
+                            StateJCSLoad[StateJCSLoad_ChName] = {'properties': StateJCSLoad_properties, 'data': StateJCSLoad_data}
+                            #print(StateJCSLoad_properties)
+                            #print(StateJCSLoad_ChName + " data:\n" + ','.join(str(x) for x in StateJCSLoad_data))
+
+                        self.knee_data[filename] = {'x' : StateJCSLoad, 'y' : StateKneeJCS}
 
     def export_legend(self, legend, filename):
         fig = legend.figure
@@ -68,48 +93,16 @@ class fileOpener ():
         #plt.show()
         plt.close()
 
-    def writeHDF5 (self):
-        #Writies all the data as datasets in a HDF5 file
-        with h5py.File("KinematicsData.hdf5", "w") as f:
-            for k, v in self.dict_StateJCS.items():
-                f.create_dataset(k, data = np.array(v))
-            for k, v in self.dict_StateKneeJCS.items():
-                f.create_dataset(k, data = np.array(v))
-            for k, v in self.dict_StateJCSLoad.items():
-                f.create_dataset(k, data = np.array(v))
-
-    def readTDMS(self):
-        for root, dirs, files in os.walk(self.directory):
-            for filename in files:
-                if(filename.endswith("main_processed.tdms")):
-                    print(os.path.join(root, filename))
-                    with TdmsFile.open(os.path.join(root, filename)) as tdms_file:
-                        StateJCSLoad = {}
-                        StateKneeJCS = {}
-                        for (c, d, e) in zip(tdms_file["State.JCS"].channels(), tdms_file["State.Knee JCS"].channels(), tdms_file["State.JCS Load"].channels()):
-                            #StateJCS_ChName, StateJCS_data = c.name, np.array(c[:])
-                            # if filename in self.dict_StateJCS:
-                            #     self.dict_StateJCS[filename].append((StateJCS_ChName, StateJCS_data))
-                            # else:
-                            #     self.dict_StateJCS[filename] = [(StateJCS_ChName, StateJCS_data)]
-                            #print(StateJCS_ChName + " data:\n" + ','.join(str(x) for x in StateJCS_data))
-
-                            StateKneeJCS_ChName, StateKneeJCS_data, StateKneeJCS_properties = d.name, np.array(d[:]), d.properties
-                            StateKneeJCS[StateKneeJCS_ChName] = {'properties': StateKneeJCS_properties, 'data': StateKneeJCS_data}
-                            #print(StateKneeJCS_properties)
-                            #print(StateKneeJCS_ChName + " data:\n" + ','.join(str(x) for x in StateKneeJCS_data))
-
-                            StateJCSLoad_ChName, StateJCSLoad_data, StateJCSLoad_properties = e.name, np.array(e[:]), e.properties
-                            StateJCSLoad[StateJCSLoad_ChName] = {'properties': StateJCSLoad_properties, 'data': StateJCSLoad_data}
-                            #print(StateJCSLoad_properties)
-                            #print(StateJCSLoad_ChName + " data:\n" + ','.join(str(x) for x in StateJCSLoad_data))
-
-                        self.knee_data[filename] = {'x' : StateJCSLoad, 'y' : StateKneeJCS}
-
 def main():
-    if (os.path.exists("KinematicsData.hdf5")):
-        os.remove("KinematicsData.hdf5")
-    FO = fileOpener(".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics")
+    hdf5_dir = os.path.join('.\hdf5_files')
+    if not os.path.exists(hdf5_dir):
+        os.mkdir(hdf5_dir)
+    image_dir = os.path.join('.\OK Data Graphs')
+    if not os.path.exists(image_dir):
+        os.mkdir(image_dir)
+    data_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
+    FO = fileOpener(data_dir)
+    #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
     FO.readTDMS()
     FO.graphData()
     #FO.writeHDF5()
