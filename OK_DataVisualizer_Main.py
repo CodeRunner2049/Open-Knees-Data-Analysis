@@ -1,16 +1,17 @@
 from nptdms import TdmsFile
 import numpy as np
+import re
 import os
 import itertools
 import h5py
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-
 class fileOpener ():
-    def __init__(self, directory):
+    def __init__(self, directory, pkg_name):
         #Constructor for the the fileOpener class. Initializes the data dictionaries and the directory name
         self.knee_data = {}
+        self.data_pkg_name = pkg_name
         self.directory = directory
 
     def writeHDF5 (self):
@@ -20,10 +21,12 @@ class fileOpener ():
                 f.create_dataset(k, data = np.array(v))
 
     def readTDMS (self):
+        index = 0
         for root, dirs, files in os.walk(self.directory):
             for filename in files:
                 if(filename.endswith("main_processed.tdms")):
-                    print(os.path.join(root, filename))
+                    print("file " + str(index) + ": " + filename)
+                    index+=1;
                     with TdmsFile.open(os.path.join(root, filename)) as tdms_file:
                         StateJCSLoad = {}
                         StateKneeJCS = {}
@@ -88,9 +91,9 @@ class fileOpener ():
             axs[i, 0].set_ylabel(knee_column_properties['column'][i]+ "(" + knee_column_properties['units'][i] + ")", fontdict=font)
         plt.tight_layout()
         fig.canvas.set_window_title('joint_mechanics-oks009_graphs')
-        plt.savefig('.\OK Data Graphs\joint_mechanics-oks009_graphs.png')
-        self.export_legend(leg, ".\OK Data Graphs\joint_mechanics-oks009_graphs_legend.png")
-        #plt.show()
+        plt.savefig('.\\OK Data Graphs\\' + self.data_pkg_name + '_graphs.png')
+        self.export_legend(leg, ".\\OK Data Graphs\\" + self.data_pkg_name + "_graphs_legend.png")
+        plt.show()
         plt.close()
 
 def main():
@@ -101,8 +104,10 @@ def main():
     if not os.path.exists(image_dir):
         os.mkdir(image_dir)
     data_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
-    FO = fileOpener(data_dir)
+    pkg_name = re.search("joint_mechanics-oks\d{3}", data_dir)
+    FO = fileOpener(data_dir, pkg_name)
     #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
+    #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
     FO.readTDMS()
     FO.graphData()
     #FO.writeHDF5()
