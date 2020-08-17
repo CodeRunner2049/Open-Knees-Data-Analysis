@@ -20,28 +20,57 @@ class fileOpener ():
             for k, v in self.knee_data.items():
                 f.create_dataset(k, data = np.array(v))
 
-    def readTDMS (self):
+    def print_files(self):
         index = 0
-        for root, dirs, files in os.walk(self.directory):
+        file_dict = {}
+        for root, dirs, files in os.walk(self.directory, topdown=True):
             for filename in files:
                 if(filename.endswith("main_processed.tdms")):
                     print("file " + str(index) + ": " + filename)
+                    file_dict[index] = (root, filename)
                     index+=1;
-                    with TdmsFile.open(os.path.join(root, filename)) as tdms_file:
-                        StateJCSLoad = {}
-                        StateKneeJCS = {}
-                        for (c, d, e) in zip(tdms_file["State.JCS"].channels(), tdms_file["State.Knee JCS"].channels(), tdms_file["State.JCS Load"].channels()):
-                            StateKneeJCS_ChName, StateKneeJCS_data, StateKneeJCS_properties = d.name, np.array(d[:]), d.properties
-                            StateKneeJCS[StateKneeJCS_ChName] = {'properties': StateKneeJCS_properties, 'data': StateKneeJCS_data}
-                            #print(StateKneeJCS_properties)
-                            #print(StateKneeJCS_ChName + " data:\n" + ','.join(str(x) for x in StateKneeJCS_data))
+        return file_dict
 
-                            StateJCSLoad_ChName, StateJCSLoad_data, StateJCSLoad_properties = e.name, np.array(e[:]), e.properties
-                            StateJCSLoad[StateJCSLoad_ChName] = {'properties': StateJCSLoad_properties, 'data': StateJCSLoad_data}
-                            #print(StateJCSLoad_properties)
-                            #print(StateJCSLoad_ChName + " data:\n" + ','.join(str(x) for x in StateJCSLoad_data))
+    def prune_data(self, split, files, pruner):
+        temp = files.copy()
+        if split ==0:
+            files=files
+        elif split == 1:
+            for index, filename in files.items():
+                if not index in pruner:
+                    del temp[index]
+        elif split == 2:
+            for index in pruner:
+                del temp[index]
+        pruned_files = []
+        for index, filename in temp.items():
+            pruned_files.append(filename)
+        return pruned_files
 
-                        self.knee_data[filename] = {'x' : StateJCSLoad, 'y' : StateKneeJCS}
+    def split_data(self, file_inp):
+        file_list = file_inp.split(",")
+        int_list = []
+        for i in file_list:
+            int_list.append(int(i))
+        return int_list
+
+    def readTDMS (self, pruned_files):
+        for root_file in pruned_files:
+            with TdmsFile.open(os.path.join(root_file[0], root_file[1])) as tdms_file:
+                StateJCSLoad = {}
+                StateKneeJCS = {}
+                for (c, d, e) in zip(tdms_file["State.JCS"].channels(), tdms_file["State.Knee JCS"].channels(), tdms_file["State.JCS Load"].channels()):
+                    StateKneeJCS_ChName, StateKneeJCS_data, StateKneeJCS_properties = d.name, np.array(d[:]), d.properties
+                    StateKneeJCS[StateKneeJCS_ChName] = {'properties': StateKneeJCS_properties, 'data': StateKneeJCS_data}
+                    #print(StateKneeJCS_properties)
+                    #print(StateKneeJCS_ChName + " data:\n" + ','.join(str(x) for x in StateKneeJCS_data))
+
+                    StateJCSLoad_ChName, StateJCSLoad_data, StateJCSLoad_properties = e.name, np.array(e[:]), e.properties
+                    StateJCSLoad[StateJCSLoad_ChName] = {'properties': StateJCSLoad_properties, 'data': StateJCSLoad_data}
+                    #print(StateJCSLoad_properties)
+                    #print(StateJCSLoad_ChName + " data:\n" + ','.join(str(x) for x in StateJCSLoad_data))
+
+                self.knee_data[root_file[1]] = {'x' : StateJCSLoad, 'y' : StateKneeJCS}
 
     def export_legend(self, legend, filename):
         fig = legend.figure
@@ -91,25 +120,9 @@ class fileOpener ():
             axs[i, 0].set_ylabel(knee_column_properties['column'][i]+ "(" + knee_column_properties['units'][i] + ")", fontdict=font)
         plt.tight_layout()
         fig.canvas.set_window_title('joint_mechanics-oks009_graphs')
-        plt.savefig('.\\OK Data Graphs\\' + self.data_pkg_name + '_graphs.png')
-        self.export_legend(leg, ".\\OK Data Graphs\\" + self.data_pkg_name + "_graphs_legend.png")
-        plt.show()
+        image_path = "./OK_Data_Graphs/" + self.data_pkg_name + "_graphs.png"
+        legend_path = "./OK_Data_Graphs/" + self.data_pkg_name + "_graphss_legend.png"
+        plt.savefig(image_path, format="png", dpi=300, bbox_inches="tight")
+        self.export_legend(leg, legend_path)
+        #plt.show()
         plt.close()
-
-def main():
-    hdf5_dir = os.path.join('.\hdf5_files')
-    if not os.path.exists(hdf5_dir):
-        os.mkdir(hdf5_dir)
-    image_dir = os.path.join('.\OK Data Graphs')
-    if not os.path.exists(image_dir):
-        os.mkdir(image_dir)
-    data_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
-    pkg_name = re.search("joint_mechanics-oks\d{3}", data_dir)
-    FO = fileOpener(data_dir, pkg_name)
-    #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
-    #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
-    FO.readTDMS()
-    FO.graphData()
-    #FO.writeHDF5()
-
-main()
