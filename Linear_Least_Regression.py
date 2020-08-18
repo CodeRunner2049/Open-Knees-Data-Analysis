@@ -1,5 +1,23 @@
 import h5py
+import pandas as pd
 import statsmodels.api as sm
+from sklearn import linear_model
 
 class linear_regression ():
-    
+
+    def __init__(self, data):
+        self.x_data = data[0]
+        self.y_data = data[1]
+
+    def regression (self):
+        #Looping through table columns and creating regression equations
+        for (columnName, columnData) in y_data.iteritems():
+            X = x_data
+            Y = y_data[columnName]
+
+            #Regression done with sklearn
+            regr = linear_model.LinearRegression()
+            regr.fit(X, Y)
+
+            print(columnName + " Intercept: " + regr.intercept_)
+            print(columnName + " Coefficients: " + regr.coef_)
