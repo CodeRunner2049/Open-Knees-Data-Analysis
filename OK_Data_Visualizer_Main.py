@@ -3,7 +3,7 @@ import os
 import re
 
 def main():
-    current_directory = os.getcwd()
+    current_directory = os.path.dirname(os.path.realpath(__file__))
     print(current_directory)
     hdf5_dir = os.path.join(current_directory, r'hdf5_files')
     if not os.path.exists(hdf5_dir):
@@ -20,20 +20,21 @@ def main():
             pruner_inp = int(input("Would you like to include or exclude certain data?: (enter 0 to skip/enter 1 to include/enter 2 to exclude): "))
             if not pruner_inp in range(0, 3):
                 raise ValueError
+            exclusionary_list = []
+            if pruner_inp == 0:
+                break
+            elif pruner_inp == 1:
+                exclusionary_list = FO.split_data(input("Enter a comma seperated list of files to include (eg. 2, 4, 7): "))
+            elif pruner_inp == 2:
+                exclusionary_list = FO.split_data(input("Enter a comma seperated list of files to exclude (eg. 2, 4, 7): "))
+            else:
+                raise ValueError
         except ValueError:
             print("Not a valid input please input again")
         else:
             break
-    if pruner_inp == 1:
-        exclusionary_list = FO.split_data(input("Enter a comma seperated list of files to include (eg. 2, 4, 7): "))
-    elif pruner_inp == 2:
-        exclusionary_list = FO.split_data(input("Enter a comma seperated list of files to exclude (eg. 2, 4, 7): "))
-    else:
-        exclusionary_list = []
     #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
     #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
-    FO.readTDMS(FO.prune_data(pruner_inp, files, exclusionary_list))
-    FO.graphData()
-    #FO.writeHDF5()
+    FO.readTDMS(FO.prune_files(pruner_inp, files, exclusionary_list))
 
 main()
