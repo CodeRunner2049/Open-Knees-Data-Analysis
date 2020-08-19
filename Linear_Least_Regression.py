@@ -19,5 +19,5 @@ class linear_regression ():
             regr = linear_model.LinearRegression()
             regr.fit(X, Y)
 
-            print(columnName + " Intercept: " + regr.intercept_)
-            print(columnName + " Coefficients: " + regr.coef_)
+            print(columnName + " Intercept: " + str(regr.intercept_))
+            print(columnName + " Coefficients: " + str(regr.coef_))

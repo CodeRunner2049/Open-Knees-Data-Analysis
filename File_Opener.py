@@ -14,15 +14,26 @@ class fileOpener ():
         self.directory = directory
         self.current_directory =  os.path.dirname(os.path.realpath(__file__))
 
+    def clean_dataset (self, x_df, y_df):
+        assert isinstance(x_df, pd.DataFrame)
+        assert isinstance(y_df, pd.DataFrame)
+        #x_NaN_indexes, y_NaN_indexes = x_df[x_df.isna().any(axis=0)].index.tolist(), y_df[y_df.isna().any(axis=0)].index.tolist()
+        indexes_to_drop = []
+        for (x_columnName, x_columnData), (y_columnName, y_columnData) in zip(x_df.iteritems(), y_df.iteritems()):
+            indexes_to_drop.extend(x_df[x_df[x_columnName].isnull()].index.tolist())
+            indexes_to_drop.extend(y_df[y_df[y_columnName].isnull()].index.tolist())
+        print(indexes_to_drop)
+        return x_df.drop(indexes_to_drop), y_df.drop(indexes_to_drop)
+
     def writeHDF5 (self, x_data, y_data):
         #Writies all the data as datasets in a HDF5 file
-        print("Pushing data to hd5f file... This may take a moment")
+        print("Pushing data to hdf5 file... This may take a moment")
         hdf5_dir = os.path.join(self.current_directory, "hdf5_files")
         hdf5_path = hdf5_dir + "\\" + self.data_pkg_name + "_hierachical_data.hdf5"
         store = pd.HDFStore(hdf5_path, "w")
         x_df = pd.DataFrame(x_data, columns=[k for k in x_data.keys()], dtype = 'float64')
         y_df = pd.DataFrame(y_data, columns=[k for k in y_data.keys()], dtype = 'float64')
-        self.clean_dataset(x_df, y_df)
+        x_df, y_df = self.clean_dataset(x_df, y_df)
         print(x_df)
         print(y_df)
         store['StateJCSLoad'] = x_df
@@ -105,7 +116,7 @@ class fileOpener ():
 
                 knee_data[root_file[1]] = {'StateJCSLoad' : temp_StateJCSLoad, 'StateKneeJCS' : temp_StateKneeJCS}
         self.writeHDF5(StateJCSLoad, StateKneeJCS)
-        self.graphData(knee_data, load_column_properties, knee_column_properties)
+        #self.graphData(knee_data, load_column_properties, knee_column_properties)
 
     def export_legend(self, legend, filename):
         fig = legend.figure
