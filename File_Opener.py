@@ -12,21 +12,41 @@ class fileOpener ():
         #Constructor for the the fileOpener class. Initializes the data dictionaries and the directory name
         self.data_pkg_name = pkg_name
         self.directory = directory
+        self.current_directory =  os.path.dirname(os.path.realpath(__file__))
+
+    def clean_dataset(self, df_1, df_2):
+        assert isinstance(df_1, pd.DataFrame)
+        assert isinstance(df_2, pd.DataFrame)
+        indexes_to_drop = []
+        for index, row in df_1.iterrows():
+            if not row.all():
+                indexes_to_drop.append(index)
+        for index, row in df_2.iterrows():
+            if not row.all():
+                indexes_to_drop.append(index)
+        return df_1.drop(indexes_to_drop), df_2.drop(indexes_to_drop)
 
     def writeHDF5 (self, x_data, y_data):
         #Writies all the data as datasets in a HDF5 file
-        print("Pushing data to hd5f file... This may take a moment")
-        current_directory = os.path.dirname(os.path.realpath(__file__))
-        hdf5_dir = os.path.join(current_directory, r'hdf5_files')
-        hdf5_path = hdf5_dir + self.data_pkg_name + "_hierachical_data.hdf5"
+        print("Pushing data to hdf5 file... This may take a moment")
+        hdf5_dir = os.path.join(self.current_directory, "hdf5_files")
+        hdf5_path = hdf5_dir + "\\" + self.data_pkg_name + "_hierachical_data.hdf5"
         store = pd.HDFStore(hdf5_path, "w")
         x_df = pd.DataFrame(x_data, columns=[k for k in x_data.keys()], dtype = 'float64')
         y_df = pd.DataFrame(y_data, columns=[k for k in y_data.keys()], dtype = 'float64')
+        self.clean_dataset(x_df, y_df)
+        print(x_df)
+        print(y_df)
         store['StateJCSLoad'] = x_df
         store['StateKneeJCS'] = y_df
         #store.append('StateJCSLoad', x_df, data_columns= x_df.columns, min_itemsize={'values': len(x_df)})
         #store.append('StateKneeJCS', y_df, data_columns= y_df.columns, min_itemsize={'values': len(y_df)})
         store.close()
+
+    def readHDF5(self, hdf5_path):
+        x_df = pd.read_hdf(hdf5_path, 'StateJCSLoad')
+        y_df = pd.read_hdf(hdf5_path, 'StateKneeJCS')
+        return (x_df, y_df)
 
     def print_files(self):
         index = 0
@@ -75,9 +95,9 @@ class fileOpener ():
                 for (c, d, e) in zip(tdms_file["State.JCS"].channels(), tdms_file["State.Knee JCS"].channels(), tdms_file["State.JCS Load"].channels()):
                     StateJCSLoad_ChName, StateJCSLoad_data, StateJCSLoad_properties = e.name, np.array(e[:]), e.properties
                     if StateJCSLoad_ChName in StateJCSLoad:
-                        StateJCSLoad[StateJCSLoad_ChName].append(StateJCSLoad_data)
+                        StateJCSLoad[StateJCSLoad_ChName].extend(StateJCSLoad_data)
                     else:
-                         StateJCSLoad[StateJCSLoad_ChName] = [StateJCSLoad_data]
+                         StateJCSLoad[StateJCSLoad_ChName] = [x for x in StateJCSLoad_data]
                     temp_StateJCSLoad[StateJCSLoad_ChName] = StateJCSLoad_data
                     load_column_properties['column'].append(StateJCSLoad_ChName)
                     load_column_properties['units'].append(StateJCSLoad_properties['NI_UnitDescription'])
@@ -86,10 +106,10 @@ class fileOpener ():
 
                     StateKneeJCS_ChName, StateKneeJCS_data, StateKneeJCS_properties = d.name, np.array(d[:]), d.properties
                     if StateKneeJCS_ChName in StateKneeJCS:
-                        StateKneeJCS[StateKneeJCS_ChName].append(StateJCSLoad_data)
+                        StateKneeJCS[StateKneeJCS_ChName].extend(StateKneeJCS_data)
                     else:
-                         StateKneeJCS[StateKneeJCS_ChName] = [StateJCSLoad_data]
-                    temp_StateKneeJCS[StateKneeJCS_ChName] = StateJCSLoad_data
+                         StateKneeJCS[StateKneeJCS_ChName] = [x for x in StateKneeJCS_data]
+                    temp_StateKneeJCS[StateKneeJCS_ChName] = StateKneeJCS_data
                     knee_column_properties['column'].append(StateKneeJCS_ChName)
                     knee_column_properties['units'].append(StateKneeJCS_properties['NI_UnitDescription'])
                     #print(StateKneeJCS_properties)
@@ -141,8 +161,9 @@ class fileOpener ():
             axs[i, 0].set_ylabel(y_properties['column'][i]+ "(" + y_properties['units'][i] + ")", fontdict=font)
         plt.tight_layout()
         fig.canvas.set_window_title('joint_mechanics-oks009_graphs')
-        image_path = "./OK_Data_Graphs/" + self.data_pkg_name + "_graphs.png"
-        legend_path = "./OK_Data_Graphs/" + self.data_pkg_name + "_graphs_legend.png"
+        image_dir = os.path.join(self.current_directory, "OK_Data_Graphs")
+        image_path = image_dir + "\\" + self.data_pkg_name + "_graphs.png"
+        legend_path = image_dir + "\\" + self.data_pkg_name + "_graphs_legend.png"
         plt.savefig(image_path, format="png", dpi=300, bbox_inches="tight")
         self.export_legend(leg, legend_path)
         #plt.show()
