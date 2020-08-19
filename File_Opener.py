@@ -14,21 +14,9 @@ class fileOpener ():
         self.directory = directory
         self.current_directory =  os.path.dirname(os.path.realpath(__file__))
 
-    def clean_dataset(self, df_1, df_2):
-        assert isinstance(df_1, pd.DataFrame)
-        assert isinstance(df_2, pd.DataFrame)
-        indexes_to_drop = []
-        for index, row in df_1.iterrows():
-            if not row.all():
-                indexes_to_drop.append(index)
-        for index, row in df_2.iterrows():
-            if not row.all():
-                indexes_to_drop.append(index)
-        return df_1.drop(indexes_to_drop), df_2.drop(indexes_to_drop)
-
     def writeHDF5 (self, x_data, y_data):
         #Writies all the data as datasets in a HDF5 file
-        print("Pushing data to hdf5 file... This may take a moment")
+        print("Pushing data to hd5f file... This may take a moment")
         hdf5_dir = os.path.join(self.current_directory, "hdf5_files")
         hdf5_path = hdf5_dir + "\\" + self.data_pkg_name + "_hierachical_data.hdf5"
         store = pd.HDFStore(hdf5_path, "w")
