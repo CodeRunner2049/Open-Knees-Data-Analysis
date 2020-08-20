@@ -1,5 +1,5 @@
-from File_Opener import fileOpener
-from Predictive_Algorithm import predictive_algorithm
+from File_Opener import file_opener
+from Algorithm import algorithm
 import os
 import re
 
@@ -13,11 +13,8 @@ def main():
         os.mkdir(image_dir)
     data_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
     pkg_name = re.search("joint_mechanics-oks\d{3}", data_dir).group(0)
-    fo = fileOpener(data_dir, pkg_name)
-    files = fo.print_files()
-    hdf5_path = hdf5_dir + "\\" + pkg_name + "_hierachical_data.hdf5"
-    image_path = image_dir + "\\" + pkg_name + "_graphs.png"
-    legend_path = image_dir + "\\" + pkg_name + "_graphs_legend.png"
+    fo = file_opener(data_dir, pkg_name)
+    fo.algorithm.do_linear_regression()
     while True:
         try:
             pruner_inp = int(input("Would you like to include or exclude certain data?: (enter 0 to skip/enter 1 to include/enter 2 to exclude): "))
@@ -28,8 +25,29 @@ def main():
                 break
             elif pruner_inp == 1:
                 exclusionary_list = fo.split_data(input("Enter a comma seperated list of files to include (eg. 2, 4, 7): "))
+                fo = file_opener(data_dir, pkg_name, fo.prune_files(pruner_inp, exclusionary_list))
+                fo.algorithm.do_linear_regression()
             elif pruner_inp == 2:
                 exclusionary_list = fo.split_data(input("Enter a comma seperated list of files to exclude (eg. 2, 4, 7): "))
+                fo = file_opener(data_dir, pkg_name, fo.prune_files(pruner_inp, exclusionary_list))
+                fo.algorithm.do_linear_regression()
+            else:
+                raise ValueError
+        except ValueError:
+            print("Not a valid input please input again")
+        else:
+            break
+
+    #Loop to check for user input to graph data
+    while True:
+        try:
+            graph_inp = str(input("Would you like to graph your data? (Y/N): "))
+            if not graph_inp.lower() == 'y' or graph_inp.lower() == 'n':
+                raise ValueError
+            elif graph_inp.lower() == 'y':
+                fo.graph_data()
+            elif graph_inp.lower() == 'n':
+                break
             else:
                 raise ValueError
         except ValueError:
@@ -38,8 +56,5 @@ def main():
             break
     #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
     #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
-    fo.readTDMS(fo.prune_files(pruner_inp, files, exclusionary_list))
-    pa = predictive_algorithm(*fo.readHDF5(hdf5_path))
-    pa.do_linear_regression()
 
 main()
