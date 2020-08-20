@@ -22,7 +22,6 @@ class fileOpener ():
         for (x_columnName, x_columnData), (y_columnName, y_columnData) in zip(x_df.iteritems(), y_df.iteritems()):
             indexes_to_drop.extend(x_df[x_df[x_columnName].isnull()].index.tolist())
             indexes_to_drop.extend(y_df[y_df[y_columnName].isnull()].index.tolist())
-        print(indexes_to_drop)
         return x_df.drop(indexes_to_drop), y_df.drop(indexes_to_drop)
 
     def writeHDF5 (self, x_data, y_data):
@@ -45,7 +44,7 @@ class fileOpener ():
     def readHDF5(self, hdf5_path):
         x_df = pd.read_hdf(hdf5_path, 'StateJCSLoad')
         y_df = pd.read_hdf(hdf5_path, 'StateKneeJCS')
-        return (x_df, y_df)
+        return x_df, y_df
 
     def print_files(self):
         index = 0
@@ -60,10 +59,10 @@ class fileOpener ():
 
     def prune_files(self, split, files, pruner):
         temp = files.copy()
-        if split ==0:
-            files=files
+        if split == 0:
+            pass
         elif split == 1:
-            for index, filename in files.items():
+            for index in files:
                 if not index in pruner:
                     del temp[index]
         elif split == 2:
@@ -147,7 +146,6 @@ class fileOpener ():
 
         print("Generating plots... This may take a moment")
         leg=plt.legend(bbox_to_anchor=(1, 1), bbox_transform=plt.gcf().transFigure)
-        #leg=axs[0, 5].legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
         for ax in axs.flat:
             ax.xaxis.set_major_locator(plt.MaxNLocator(6))
             ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))

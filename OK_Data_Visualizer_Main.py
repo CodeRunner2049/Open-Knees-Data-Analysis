@@ -1,5 +1,5 @@
 from File_Opener import fileOpener
-from Linear_Least_Regression import linear_regression
+from Predictive_Algorithm import predictive_algorithm
 import os
 import re
 
@@ -39,7 +39,7 @@ def main():
     #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
     #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
     fo.readTDMS(fo.prune_files(pruner_inp, files, exclusionary_list))
-    lr = linear_regression(fo.readHDF5(hdf5_path))
-    lr.regression()
+    pa = predictive_algorithm(*fo.readHDF5(hdf5_path))
+    pa.do_linear_regression()
 
 main()
