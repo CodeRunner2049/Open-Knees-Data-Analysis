@@ -25,19 +25,18 @@ def main():
                 break
             elif pruner_inp == 1:
                 exclusionary_list = fo.split_data(input("Enter a comma seperated list of files to include (eg. 2, 4, 7): "))
-                fo = file_opener(data_dir, pkg_name, fo.prune_files(pruner_inp, exclusionary_list))
-                fo.algorithm.do_linear_regression()
+                fo.update_dataframes(pruner_inp, exclusionary_list)
+                break
             elif pruner_inp == 2:
                 exclusionary_list = fo.split_data(input("Enter a comma seperated list of files to exclude (eg. 2, 4, 7): "))
-                fo = file_opener(data_dir, pkg_name, fo.prune_files(pruner_inp, exclusionary_list))
-                fo.algorithm.do_linear_regression()
+                fo.update_dataframes(pruner_inp, exclusionary_list)
+                break
             else:
                 raise ValueError
         except ValueError:
             print("Not a valid input please input again")
         else:
             break
-
     #Loop to check for user input to graph data
     while True:
         try:
@@ -46,10 +45,11 @@ def main():
                 raise ValueError
             elif graph_inp.lower() == 'y':
                 fo.graph_data()
+                break
             elif graph_inp.lower() == 'n':
                 break
             else:
-                raise ValueError
+                break
         except ValueError:
             print("Not a valid input please input again")
         else:

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import statsmodels.api as sm
+import statistics
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 
@@ -29,6 +29,9 @@ class algorithm ():
         for y_columnName in self.y_data.columns:
             self.list_of_regressions.append(linear_regression(self.x_data, self.y_data[y_columnName]))
 
+    def do_std_devation (self, data):
+        return statistics.stdev(data)
+
     def get_regression_list(self):
         return self.list_of_regressions
 
@@ -50,6 +53,8 @@ class linear_regression (algorithm):
 
         #Calculate the mean squared error
         self.ms_error = mean_squared_error(self.y_test, self.pred)
+
+        #TODO Add coefficient of correlation
 
         #Calculate the coefficient of determination: 1 is the perfect precition
         self.r2_score = r2_score(self.y_test, self.pred)
