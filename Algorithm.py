@@ -3,6 +3,7 @@ import numpy as np
 import statistics
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 
 class algorithm ():
 
@@ -10,16 +11,8 @@ class algorithm ():
         self.x_data = x_df
         self.y_data = y_df
         self.list_of_regressions = []
-        self.split_training_test_sets()
-
-    def split_training_test_sets (self):
-        msk = np.random.rand(len(self.x_data)) < 0.75
-
-        self.x_train = self.x_data[msk]
-        self.x_test = self.x_data[~msk]
-
-        self.y_train = self.y_data[msk]
-        self.y_test = self.y_data[~msk]
+        self.regression_coef_dict = {}
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(self.x_data, self.y_data, test_size=0.25, random_state=0)
 
     def do_linear_regression(self):
         print("Generating a regression... This may take a moment")
@@ -27,7 +20,9 @@ class algorithm ():
         #Looping through table columns and creating regression objects
         #then appending to regression array
         for y_columnName in self.y_data.columns:
-            self.list_of_regressions.append(linear_regression(self.x_data, self.y_data[y_columnName]))
+            lr = linear_regression(self.x_data, self.y_data[y_columnName])
+            self.list_of_regressions.append(lr)
+            #self.regression_coef_dict[y_columnName] = {x_col:coef for x_col, coef in zip(self.x_train.columns, lr.regr.coef)}
 
     def do_std_devation (self, data):
         return statistics.stdev(data)
@@ -50,6 +45,7 @@ class linear_regression (algorithm):
 
         #Generate prediction array from the testing data
         self.pred = self.regr.predict(self.x_test)
+        self.actual_vrs_pred = pd.DataFrame({'Actual': self.y_test, 'Predicted': self.pred})
 
         #Calculate the mean squared error
         self.ms_error = mean_squared_error(self.y_test, self.pred)

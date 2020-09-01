@@ -38,13 +38,16 @@ def main():
         else:
             break
     #Loop to check for user input to graph data
+    image_dir = os.path.join(current_directory, "OK_Data_Graphs")
+    image_path = image_dir + "\\" + pkg_name
     while True:
         try:
             graph_inp = str(input("Would you like to graph your data? (Y/N): "))
             if not graph_inp.lower() == 'y' or graph_inp.lower() == 'n':
                 raise ValueError
             elif graph_inp.lower() == 'y':
-                fo.graph_data()
+                fo.graph_data(image_path)
+                fo.graph_regression_error(image_path)
                 break
             elif graph_inp.lower() == 'n':
                 break
