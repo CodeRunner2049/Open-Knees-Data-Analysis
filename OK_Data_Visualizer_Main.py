@@ -1,5 +1,4 @@
 from File_Opener import file_opener
-from Algorithm import algorithm
 import os
 import re
 
@@ -15,12 +14,16 @@ def main():
     pkg_name = re.search("joint_mechanics-oks\d{3}", data_dir).group(0)
     fo = file_opener(data_dir, pkg_name)
     fo.algorithm.do_linear_regression()
+    fo.algorithm.generate_neural_networks()
+    neural_networks = fo.algorithm.get_neural_network_list()
+    for nn in neural_networks:
+        print(nn.y_columnName + " neural network mean_squared error and accuracy: " + str(nn.test_loss))
     while True:
         try:
-            pruner_inp = int(input("Would you like to include or exclude certain data?: (enter 0 to skip/enter 1 to include/enter 2 to exclude): "))
+            pruner_inp = int(input("Would you like to include or exclude certain data?: (enter 0 to skip/enter 1 to "
+                                   "include/enter 2 to exclude): "))
             if not pruner_inp in range(0, 3):
                 raise ValueError
-            exclusionary_list = []
             if pruner_inp == 0:
                 break
             elif pruner_inp == 1:
@@ -35,8 +38,7 @@ def main():
                 raise ValueError
         except ValueError:
             print("Not a valid input please input again")
-        else:
-            break
+
     #Loop to check for user input to graph data
     image_dir = os.path.join(current_directory, "OK_Data_Graphs")
     image_path = image_dir + "\\" + pkg_name
@@ -55,8 +57,7 @@ def main():
                 break
         except ValueError:
             print("Not a valid input please input again")
-        else:
-            break
+
     #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
     #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
 
