@@ -13,11 +13,12 @@ def main():
     data_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
     pkg_name = re.search("joint_mechanics-oks\d{3}", data_dir).group(0)
     fo = file_opener(data_dir, pkg_name)
+    fo.print_files_with_deviation()
     fo.algorithm.do_linear_regression()
-    fo.algorithm.generate_neural_networks()
-    neural_networks = fo.algorithm.get_neural_network_list()
-    for nn in neural_networks:
-        print(nn.y_columnName + " neural network mean_squared error and accuracy: " + str(nn.test_loss))
+    # fo.algorithm.generate_neural_networks()
+    # neural_networks = fo.algorithm.get_neural_network_list()
+    # for nn in neural_networks:
+    #     print(nn.y_columnName + " neural network mean_squared error and accuracy: " + str(nn.test_loss))s
     while True:
         try:
             pruner_inp = int(input("Would you like to include or exclude certain data?: (enter 0 to skip/enter 1 to "

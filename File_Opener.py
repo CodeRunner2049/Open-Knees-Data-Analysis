@@ -21,10 +21,10 @@ class file_opener():
         # Build the x & y dataframes from the presented files
         self.x_dataframe, self.y_dataframe = self.files_to_dataframes(self.file_dict)
         # Here self.hdf5_path is instantiated
-        self.write_HDF5(self.x_dataframe, self.y_dataframe)
+        # self.write_HDF5(self.x_dataframe, self.y_dataframe)
         # Generate class attribute algorithm imported from algorithm class (drop filename column)
         self.algorithm = algorithm(self.x_dataframe, self.y_dataframe)
-        # self.print_files_with_deviation()
+        self.print_files_with_deviation()
 
     def build_file_dict(self):
         index = 0
@@ -116,12 +116,11 @@ class file_opener():
 
     def update_dataframes(self, pruner_inp, exclusionary_list):
         self.prune_files(pruner_inp, exclusionary_list)
-        self.files_to_dataframes(self.file_dict)
+        self.x_dataframe, self.y_dataframe = self.files_to_dataframes(self.file_dict)
         self.print_files_with_deviation()
-        self.write_HDF5(self.x_dataframe, self.y_dataframe)
         print("Your linear regressions have changed to: ")
+        self.algorithm = algorithm(self.x_dataframe, self.y_dataframe)
         self.algorithm.do_linear_regression()
-        self.algorithm.generate_neural_networks()
 
     """Writes x and y dataframes into an HDF5 file"""
 
