@@ -1,4 +1,5 @@
 from File_Opener import file_opener
+from collections import defaultdict
 import os
 import re
 
@@ -10,15 +11,34 @@ def main():
     image_dir = os.path.join(current_directory, "OK_Data_Graphs")
     if not os.path.exists(image_dir):
         os.mkdir(image_dir)
-    data_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
-    pkg_name = re.search("joint_mechanics-oks\d{3}", data_dir).group(0)
-    fo = file_opener(data_dir, pkg_name)
-    fo.print_files_with_deviation()
+    while True:
+        try:
+            file_or_directory = int(input("Would you like to read from a directory or from a stored h5 file? (1 for directory, "
+                      "2 for h5)"))
+            if not file_or_directory in range(1, 3):
+                raise ValueError
+            elif file_or_directory == 1:
+                pkg_dir = input("Enter in the directory (filepath) of the Open Knee data that you would like to analyze: ")
+                pkg_name = re.search("joint_mechanics-oks\d{3}", pkg_dir).group(0)
+                fo = file_opener(1, pkg_dir, pkg_name)
+                break
+            elif file_or_directory == 2:
+                h5_pkgs = defaultdict(dict)
+                index = 0
+                for root, dirs, files in os.walk(hdf5_dir, topdown=True):
+                    for subdir in dirs:
+                        h5_pkgs[index] = (str(subdir), os.path.join(root, subdir))
+                        index += 1
+                print(h5_pkgs)
+                val = int(input("Which experiment would you like to analyze (enter the number associated ie. 3)\n"))
+                pkg_name, pkg_dir = h5_pkgs[val][0], h5_pkgs[val][1]
+                fo = file_opener(2, pkg_dir, pkg_name)
+                break
+            else:
+                raise ValueError
+        except ValueError:
+            print("Not a valid input please input again")
     fo.algorithm.do_linear_regression()
-    # fo.algorithm.generate_neural_networks()
-    # neural_networks = fo.algorithm.get_neural_network_list()
-    # for nn in neural_networks:
-    #     print(nn.y_columnName + " neural network mean_squared error and accuracy: " + str(nn.test_loss))s
     while True:
         try:
             pruner_inp = int(input("Would you like to include or exclude certain data?: (enter 0 to skip/enter 1 to "
@@ -55,10 +75,14 @@ def main():
             elif graph_inp.lower() == 'n':
                 break
             else:
-                break
+                raise ValueError
         except ValueError:
             print("Not a valid input please input again")
 
+    fo.algorithm.generate_neural_networks()
+    neural_networks = fo.algorithm.get_neural_network_list()
+    for nn in neural_networks:
+        print(nn.y_columnName + " neural network mean_squared error and accuracy: " + str(nn.test_loss))
     #".\Open Knees File Visualization\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics"
     #D:\Mourad\joint_mechanics-oks009\joint_mechanics-oks009\TibiofemoralJoint\KinematicsKinetics
 

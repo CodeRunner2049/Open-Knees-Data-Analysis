@@ -10,26 +10,47 @@ import matplotlib.ticker as ticker
 
 # K nearest neighbor outlier detection
 
-class file_opener():
+class file_opener:
     """Constructor for the the file_opener class. Initializes the data dictionaries and the directory name"""
 
-    def __init__(self, directory, pkg_name):
+    def __init__(self, file_or_directory, directory, pkg_name):
         self.current_directory = os.path.dirname(os.path.realpath(__file__))
         self.data_pkg_name = pkg_name
-        self.directory = directory
-        self.file_dict = self.build_file_dict()
-        # Build the x & y dataframes from the presented files
-        self.x_dataframe, self.y_dataframe = self.files_to_dataframes(self.file_dict)
-        # Here self.hdf5_path is instantiated
-        # self.write_HDF5(self.x_dataframe, self.y_dataframe)
+        if (file_or_directory == 1):
+            self.file_dict = self.build_file_dict(directory)
+            # Build the x & y dataframes from the presented files
+            self.x_dataframe, self.y_dataframe = self.files_to_dataframes(self.file_dict)
+            self.print_files_with_deviation()
+        elif (file_or_directory == 2):
+            self.x_dataframe, self.y_dataframe = self.read_HDF5(directory)
+        else:
+            ValueError("invalid input please restart")
+        # Ask the user if they would like to write to hdf5 or continue
+        if(self.ask_h5):
+            self.write_HDF5(self.x_dataframe, self.y_dataframe)
         # Generate class attribute algorithm imported from algorithm class (drop filename column)
         self.algorithm = algorithm(self.x_dataframe, self.y_dataframe)
-        self.print_files_with_deviation()
 
-    def build_file_dict(self):
+    def ask_h5(self):
+        while True:
+            try:
+                h5_inp = str(input("Would you like to graph your data? (Y/N): "))
+                if not h5_inp.lower() == 'y' or h5_inp.lower() == 'n':
+                    raise ValueError
+                elif h5_inp.lower() == 'y':
+                    return True
+                    break
+                elif h5_inp.lower() == 'n':
+                    return False
+                else:
+                    raise ValueError
+            except ValueError:
+                print("Not a valid input please input again")
+
+    def build_file_dict(self, directory):
         index = 0
         file_dict = defaultdict(dict)
-        for root, dirs, files in os.walk(self.directory, topdown=True):
+        for root, dirs, files in os.walk(directory, topdown=True):
             for filename in files:
                 if filename.endswith("main_processed.tdms"):
                     file_dict[index] = {'root': root, 'filename': filename}
@@ -126,18 +147,26 @@ class file_opener():
 
     def write_HDF5(self, x_df, y_df):
         print("Pushing data to hdf5 file... This may take a moment")
-        print(x_df)
-        print(y_df)
         hdf5_dir = os.path.join(self.current_directory, "hdf5_files")
-        self.hdf5_path = hdf5_dir + "\\" + self.data_pkg_name + "_hierachical_data.hdf5"
-        store = pd.HDFStore(self.hdf5_path, "w")
-        store['StateJCSLoad'] = x_df
-        store['StateKneeJCS'] = y_df
-        store.close()
+        h5_pkg = os.path.join(hdf5_dir, self.data_pkg_name)
+        if not os.path.exists(h5_pkg):
+            os.mkdir(h5_pkg)
+        x_hdf5_path,  y_hdf5_path = h5_pkg + "\\" + self.data_pkg_name + "_x_hierarchical_data.h5", h5_pkg + "\\" + self.data_pkg_name + "_y_hierarchical_data.h5"
+        x_df.to_hdf(x_hdf5_path, key='x_data', mode='w')
+        y_df.to_hdf(y_hdf5_path, key='y_data', mode='w')
 
-    def read_HDF5(self, hdf5_path):
-        x_df = pd.read_hdf(hdf5_path, 'StateJCSLoad')
-        y_df = pd.read_hdf(hdf5_path, 'StateKneeJCS')
+    def read_HDF5(self, directory):
+        for root, dirs, files in os.walk(directory, topdown=True):
+            for file in files:
+                filepath = os.path.join(root, file)
+                if(filepath).endswith("x_hierarchical_data.h5"):
+                    x_h5_path = filepath
+                elif (filepath).endswith("y_hierarchical_data.h5"):
+                    y_h5_path = filepath
+                else:
+                    raise ValueError("something went wrong, please try another directory")
+        x_df = pd.read_hdf(x_h5_path, 'x_data')
+        y_df = pd.read_hdf(y_h5_path, 'y_data')
         return x_df, y_df
 
     def read_TDMS(self, root, filename):
@@ -235,4 +264,4 @@ class file_opener():
         # plt.savefig(regerror_path, format="png", dpi=300, bbox_inches="tight")
         plt.show()
         plt.close()
-        print("Plot generation complete check your curreny working directory for graph images and the hdf5 file")
+        print("Plot generation complete check your current working directory for graph images and the hdf5 file")
