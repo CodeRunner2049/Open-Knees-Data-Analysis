@@ -336,6 +336,199 @@ def find_hold_indices(group, channel):
     # return just the end points. to return the start and end points for each flat zone, return the tuples instead
     return pos_end, neg_end
 
+def change_kinematics_reporting(group):
+    """flip the channels which are reported oppostie to the model"""
+    data = group.data
+    channels = group.channels
+
+    updated_data = copy.deepcopy(data)
+    updated_channels = copy.deepcopy(channels)
+
+    # changing the names and directions of the channels to align with our JCS definitions
+
+    # expeirment=  "Medial"
+    # model= medial translation (dont need to flip)
+    updated_channels[0] = 'Knee JCS Medial Translation'
+
+    # experiment= "Posterior"
+    # model= anterior translation (need to flip)
+    updated_data[1] = -data[1]
+    updated_channels[1] = 'Knee JCS Anterior Translation'
+
+    # experiment= "Superior"
+    # model = superior translation (dont need to flip)
+    updated_channels[2] = 'Knee JCS Superior Translation'
+
+    # epxeriment  =  "Flexion"
+    # model = extension (need to flip)
+    updated_data[3] = -data[3]
+    updated_channels[3] = 'Knee JCS Extension Rotation'
+
+    # experiment = "Valgus"
+    # model = abduction = valgus (dont need to flip)
+    updated_channels[4] = 'Knee JCS Abduction Rotation'
+
+    # experiment = "Internal Rotation"
+    # model = External (need to flip)
+    updated_data[5] = -data[5]
+    updated_channels[5] = 'Knee JCS External Rotation'
+
+
+    group.data = updated_data
+    group.channels = updated_channels
+    group.processed = True
+
+def change_kinetics_reporting(group, loading_channel=None):
+    """flip the channels which are reported opposite to the model."""
+
+    data = np.asarray(group.data)
+    channels = group.channels
+
+    updated_data = copy.deepcopy(data)
+    updated_channels = copy.deepcopy(channels)
+
+    # changing the names and directios of the channels so the force descriptions are clearly defined in our coordinate systems
+
+    #experiment = "Lateral Drawer"
+    #model = medial (need to flip)
+    updated_channels[0] = 'External Tibia_x Load'
+    updated_data[0] = -data[0]
+
+    #experiment = "Anterior Drawer"
+    # model = anterior
+    updated_channels[1] = 'External Tibia_y Load'
+
+    #experiment = "Distraction"
+    #model = superior (need to flip - distractiong is a force in the inferior direction)
+    updated_channels [2] = 'External Tibia_z Load'
+    updated_data[2] = -data[2]
+
+    #experiment = "Extension Torque"
+    #model = extension
+    updated_channels[3] = 'External Tibia_x Moment'
+
+    # experiment = "Varus Torque"
+    # model = valgus (need to flip)
+    updated_channels[4]  = 'External Tibia_y Moment'
+    updated_data[4] = -data[4]
+
+    # experiment ="External Rotation Torque"
+    # model = "external"
+    updated_channels[5] = 'External Tibia_z Moment'
+
+    group.data = updated_data
+    group.channels = updated_channels
+    group.processed = True
+
+    # change the "time" to be a function of loading
+    if loading_channel is not None:
+        loading_data = updated_data[loading_channel]
+        group.time = [loading_data] *6 # repeat for every channel
+
+def T_tib_in_fem(a, b, c, alpha, beta, gamma):
+    # this transformation matrix will give the position of the tibia in the femur coordinate system for each data point
+
+    T_fem_tib = np.zeros((len(a),4,4))
+
+    ca = np.cos(alpha)
+    cb = np.cos(beta)
+    cg = np.cos(gamma)
+    sa = np.sin(alpha)
+    sb = np.sin(beta)
+    sg = np.sin(gamma)
+
+    T_fem_tib[:,0,0] = np.multiply(cb,cg)
+    T_fem_tib[:, 0, 1] = np.multiply(-cb,sg)
+    T_fem_tib[:, 0, 2] = sb
+    T_fem_tib[:, 0, 3] = np.multiply(c,sb) + a
+
+    T_fem_tib[:, 1, 0] = np.multiply(np.multiply(sa,sb),cg) + np.multiply(ca,sg)
+    T_fem_tib[:, 1, 1] = -np.multiply(np.multiply(sa,sb),sg) + np.multiply(ca, cg)
+    T_fem_tib[:, 1, 2] = -np.multiply(sa, cb)
+    T_fem_tib[:, 1, 3] = -np.multiply(c,np.multiply(sa, cb))+ np.multiply(b,ca)
+
+    T_fem_tib[:, 2, 0] = -np.multiply(np.multiply(ca, sb), cg) + np.multiply(sa,sg)
+    T_fem_tib[:, 2, 1] = np.multiply(np.multiply(ca,sb),sg) + np.multiply(sa,cg)
+    T_fem_tib[:, 2, 2] = np.multiply(ca, cb)
+    T_fem_tib[:, 2, 3] = np.multiply(c,np.multiply(ca, cb))+ np.multiply(b,sa)
+
+    T_fem_tib[:, 3, 3] = 1.0
+
+    return T_fem_tib
+
+def kinetics_tibia_to_femur(kinetics_group, kinematics_group, loading_channel=None):
+    """ convert the kinetics channel to report loads applied to femur in the tibia coordinate system.
+    if a loading channel is given, the 'time' in the group will be updated too"""
+
+    # initially, loads are reported as external tibia loads in the tibia coordinate system.
+    # (a 'lateral' load is really along the tibia x axis not the JCS lateral axis)
+    tibia_kinetics_data_at_tibia_origin = np.asarray(kinetics_group.data)
+
+    # to report the external forces applied to the femur, we need to invert the forces applied to the tibia
+    femur_kinetics_data_at_tibia_origin = -tibia_kinetics_data_at_tibia_origin
+
+    # now we need to translate the forces and moments so they are applied at the femur origin instead of the tibia origin
+
+    # find a,b,c,alpha,beta,gamma
+    # note: the kinematics data was given in deg, mm. need to convert to rad, m
+    kinematics_data = np.asarray(kinematics_group.data)
+    a = kinematics_data[0]/1000.0
+    b = kinematics_data[1]/1000.0
+    c = kinematics_data[2]/1000.0
+
+    alpha = np.radians(kinematics_data[3])
+    beta = np.radians(kinematics_data[4])
+    gamma = np.radians(kinematics_data[5])
+
+    # find the transformation of tibia in femur coordinte for each time point
+    T = T_tib_in_fem(a, b, c, alpha, beta, gamma)
+
+    # invert to get the position of femur in tibia CS
+    T_fem_in_tib = np.linalg.inv(T)
+
+    # vector from tibia origin to femur origin in tibia coordinate system at each time point
+    vec_fmo = T_fem_in_tib[:, 0:3, 3] # units m
+    vec_fmo = vec_fmo.T # transpose so it will be in the same shape as the data ie (axis, time point)
+
+    # the moments at the femur origin are the moments at the tibia origin plus the forces at the tibia origin
+    # cross with the moment arm (vector from femur origin to tibia origin in tibia cs, so negative of vec_fmo)
+
+    loads = femur_kinetics_data_at_tibia_origin[0:3,:] # units N
+    torques = femur_kinetics_data_at_tibia_origin[3:6,:] # units Nm, or Nmm
+
+    # check the units of loads and torques
+    torque_units = kinetics_group.units[3]
+
+    if 'Nmm' in torque_units:
+        vec_fmo = vec_fmo * 1000 # convert vector to mm, results will be in Nmm
+
+    # load_moments = np.multiply(loads, vec_fmo) # units same as intial kinetics torques
+    load_moments = np.cross(-vec_fmo.T, loads.T).T
+    torques = torques + load_moments # units same as intial kinetics torques
+
+    # store all the results back in the data, channels
+    femur_kinetics_data_at_femur_origin = np.zeros(np.shape(femur_kinetics_data_at_tibia_origin))
+    femur_kinetics_data_at_femur_origin[0:3, :] = loads
+    femur_kinetics_data_at_femur_origin[3:6, :] = torques
+
+    kinetics_group.data = femur_kinetics_data_at_femur_origin
+    kinetics_group.channels = ['External Femur_x Load','External Femur_y Load','External Femur_z Load','External Femur_x Moment','External Femur_y Moment','External Femur_z Moment']
+    kinetics_group.processed = True
+    if loading_channel is not None:
+        loading_data = femur_kinetics_data_at_femur_origin[loading_channel]
+        kinetics_group.time = [loading_data] * 6 # repeat for every channel
+        kinematics_group.time = [loading_data] * 6
+
+
+def generate_dataframes(group, x_label):
+    """Generate the dataframes from the partitioned kinematics and kinetics data"""
+
+    df = pd.DataFrame()
+    df[x_label] = group.time[0]
+    for i in range (6):
+        df[group.channels[i] + ' [' +  group.units[i]+ ']'] = group.data[i]
+    return df
+
 
 def laxity_processing_2(groups, experiment_offsets, model_offsets, tdms_directory):
     """use the desired kinematics channels to filter the kinematics and kinetics data"""
@@ -358,6 +551,8 @@ def laxity_processing_2(groups, experiment_offsets, model_offsets, tdms_director
 
     Loading_channels = [4, 5, 1]
     channel_nickname = ['VV', 'EI', 'AP']
+    all_laxity_kinematics_dfs = []
+    all_laxity_kinetics_dfs = []
 
     for n, chan in enumerate(Loading_channels):
 
@@ -405,14 +600,13 @@ def laxity_processing_2(groups, experiment_offsets, model_offsets, tdms_director
             apply_offsets(kinematics_group_copy, -model_offsets)
 
             # processed data this will be used to generate models replicating experiment
-            # plot_groups(
-            #     'Laxity_{}deg_'.format(rounded_flexion) + channel_nickname[n] + str(c + 1) + '_kinetics_in_TibiaCS',
-            #     kinetics_group_copy,
-            #     'Applied Load (' + channel_units + ')', tdms_directory, show_plot=False)
-            # plot_groups(
-            #     'Laxity_{}deg_'.format(rounded_flexion) + channel_nickname[n] + str(c + 1) + '_kinematics_in_JCS',
-            #     kinematics_group_copy,
-            #     'Applied Load (' + channel_units + ')', tdms_directory, show_plot=False)
+            all_laxity_kinetics_dfs.append(generate_dataframes(kinetics_group_copy, 'Applied Load (' + channel_units + ')'))
+            all_laxity_kinematics_dfs.append(generate_dataframes(kinematics_group_copy, 'Applied Load (' + channel_units + ')'))
+
+    laxity_kinetics_df = pd.concat(all_laxity_kinetics_dfs)
+    laxity_kinematics_df = pd.concat(all_laxity_kinematics_dfs)
+
+    return laxity_kinetics_df, laxity_kinematics_df
 
 
 def passive_flexion_processing_2(groups, experiment_offsets, model_offsets, tdms_directory):
@@ -464,13 +658,11 @@ def passive_flexion_processing_2(groups, experiment_offsets, model_offsets, tdms
     # apply model offsets (subtract) - Note this is done AFTER changing the signs of the data to register with model outputs.
     apply_offsets(kinematics_group, -model_offsets)
 
-    # save the data as csv and png files - this is what will be used to model experimental conditions
-    # plot_groups("Passive_Flexion_Kinematics_in_JCS", kinematics_group, 'Flexion Angle (deg)', tdms_directory,
-    #             show_plot=False)
-    # plot_groups("Passive_Flexion_Kinetics_in_TibiaCS", kinetics_group, 'Flexion Angle (deg)', tdms_directory,
-    #             show_plot=False)
+    # save the data as pandas dataframes - this is what will be used to model experimental conditions
+    flexion_kinematics_df = generate_dataframes(kinematics_group, 'Flexion Angle (deg)')
+    flexion_kinetics_df = generate_dataframes(kinetics_group, 'Flexion Angle (deg)')
 
-
+    return flexion_kinetics_df, flexion_kinematics_df
 
 def process_tdms_files(file_directory, ModelProperties):
     # sort through files, label them as the state file or tdms file
@@ -489,11 +681,13 @@ def process_tdms_files(file_directory, ModelProperties):
     experiment_offsets = get_offsets(State_file, file_directory)
     model_offsets = find_model_offsets(ModelProperties)
 
-    # print(experiment_offsets)
-    # print(model_offsets)
+    print(experiment_offsets)
+    print(model_offsets)
 
     # store all the data together for plotting/visual analysis purpose
     all_data = []
+    all_kinematics_dfs = []
+    all_kinetics_dfs = []
 
     # process the data in each of the tdms files
     for file in tdms_files:
@@ -509,7 +703,10 @@ def process_tdms_files(file_directory, ModelProperties):
             # this processing script was used in initial knee hub calibration, but we found a better way to do it.
             # passive_flexion_processing(groups, experiment_offsets, model_offsets,  file_directory)
 
-            passive_flexion_processing_2(groups, experiment_offsets, model_offsets, file_directory)
+            flexion_kinetics_df, flexion_kinematics_df = passive_flexion_processing_2(groups, experiment_offsets, model_offsets, file_directory)
+
+            all_kinetics_dfs.append(flexion_kinetics_df)
+            all_kinematics_dfs.append(flexion_kinematics_df)
 
 
         elif 'laxity' in file.lower():
@@ -520,8 +717,17 @@ def process_tdms_files(file_directory, ModelProperties):
             # this processing script was used in initial knee hub calibration, but we found a better way to do it.
             # laxity_processing(groups, experiment_offsets, model_offsets,  file_directory)
 
-            laxity_processing_2(groups, experiment_offsets, model_offsets, file_directory)
+            laxity_kinetics_df, laxity_kinematics_df = laxity_processing_2(groups, experiment_offsets, model_offsets, file_directory)
+
+            all_kinetics_dfs.append(laxity_kinetics_df)
+            all_kinematics_dfs.append(laxity_kinematics_df)
+
             # pass
+
+    kinetics_df = pd.concat(all_kinetics_dfs)
+    kinematics_df = pd.concat(all_kinematics_dfs)
+
+    return kinetics_df, kinematics_df
 
 
 class file_opener:
