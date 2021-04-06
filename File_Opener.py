@@ -1,15 +1,19 @@
 from nptdms import TdmsFile
 from collections import defaultdict
-#from Algorithm import algorithm
+# from Algorithm import algorithm
 import numpy as np
 import pandas as pd
 import copy
 import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-try: import configparser as cp
-except: import configparser as cp
+
+try:
+    import configparser as cp
+except:
+    import configparser as cp
 from lxml import etree as et
+
 
 class Group:
     def __init__(self, name, channels, data, units, time, processed=False):
@@ -101,6 +105,7 @@ def get_desired_kinetics(groups):
 
     return desired_kinetics_group
 
+
 # def get_offsets(state_config, file_directory):
 #     """ extract the offsets form the configuration file and convert to mm,deg from m,rad"""
 #
@@ -187,7 +192,7 @@ def crop_data(group, cropping_index):
     group.processed = True
 
 
-def cut_data (group, cutting_index):
+def cut_data(group, cutting_index):
     """ delete all the data in the group by the given by the cutting index"""
 
     data = np.asarray(group.data)
@@ -205,8 +210,8 @@ def cut_data (group, cutting_index):
     group.time = cut_time
     group.processed = True
 
-def resampling_index(group, resampling_channel, increment, range, start=0.0):
 
+def resampling_index(group, resampling_channel, increment, range, start=0.0):
     # chan_idx = group.channels.index(resampling_channel)
     chan_idx = resampling_channel
     chan_data = group.data[chan_idx]
@@ -506,8 +511,8 @@ def generate_dataframes(group, x_label):
 
     df = pd.DataFrame()
     df[x_label] = group.time[0]
-    for i in range (6):
-        df[group.channels[i] + ' [' +  group.units[i]+ ']'] = group.data[i]
+    for i in range(6):
+        df[group.channels[i] + ' [' + group.units[i] + ']'] = group.data[i]
     return df
 
 
@@ -520,7 +525,7 @@ def get_NaN_indices(group):
     indices_to_drop = list(np.argwhere(data == 0))
     indices_to_drop = [index[1] for index in indices_to_drop]
 
-    #Nan_tuples = list(map(tuple, np.where(np.isnan(data))))
+    # Nan_tuples = list(map(tuple, np.where(np.isnan(data))))
     # indices_to_drop = []
     # for index, tuple in enumerate(Nan_tuples):
     #     indices_to_drop.append(tuple[2])
@@ -532,16 +537,46 @@ def get_NaN_indices(group):
 
     return indices_to_drop
 
-# def clean_dataframes(kinetics_data, kinematics_data):
-#     """Clean the NaN indexes from the kinematics and kinetics data"""
-#
-#     assert isinstance(kinetics_data, pd.DataFrame)
-#     assert isinstance(kinematics_data, pd.DataFrame)
-#     indexes_to_drop = []
-#     for (x_columnName, x_columnData), (y_columnName, y_columnData) in zip(x_df.iteritems(), y_df.iteritems()):
-#         indexes_to_drop.extend(x_df[x_df[x_columnName].isnull()].index.tolist())
-#         indexes_to_drop.extend(y_df[y_df[y_columnName].isnull()].index.tolist())
-#     return x_df.drop(indexes_to_drop), y_df.drop(indexes_to_drop)
+
+def clean_dataframes(kinetics_data, kinematics_data):
+    """Clean the NaN indexes from the kinematics and kinetics data"""
+
+    assert isinstance(kinetics_data, pd.DataFrame)
+    assert isinstance(kinematics_data, pd.DataFrame)
+
+    kinetics_data_copy = kinetics_data.copy(deep=True)
+    kinematics_data_copy = kinematics_data.copy(deep=True)
+    indices_to_drop = []
+
+    # Make sure the only channels present are the kinetics and kinematics data
+    kinetics_channels = ['JCS Load Lateral Drawer [N]', 'JCS Load Anterior Drawer [N]', 'JCS Load Distraction [N]',
+                         'JCS Load Extension Torque [Nm]', 'JCS Load Varus Torque [Nm]',
+                         'JCS Load External Rotation Torque [Nm]']
+    kinematics_channels = ['Knee JCS Medial [mm]', 'Knee JCS Posterior [mm]', 'Knee JCS Superior [mm]',
+                           'Knee JCS Flexion [deg]', 'Knee JCS Valgus [deg]', 'Knee JCS Internal Rotation [deg]']
+
+    # Check the kinetics data for null indices and append the indexes to the dropping array
+
+    for x_columnName, x_columnData in kinetics_data_copy.iteritems():
+        if x_columnName not in kinetics_channels:
+            kinetics_data_copy = kinetics_data_copy.drop([x_columnName], axis=1)
+        else:
+            indices_to_drop.extend(kinetics_data_copy[kinetics_data_copy[x_columnName].isnull()].index.tolist())
+
+    # Check the kinematics data for null indices and append the indexes to the dropping array
+
+    for y_columnName, y_columnData in kinematics_data_copy.iteritems():
+        if y_columnName not in kinematics_channels:
+            kinematics_data_copy = kinematics_data_copy.drop(y_columnName, axis=1)
+        else:
+            indices_to_drop.extend(kinematics_data_copy[kinematics_data_copy[y_columnName].isnull()].index.tolist())
+
+    # Drop the indices from the dropping array
+
+    kinetics_data_copy = kinetics_data_copy.drop(indices_to_drop, axis=0)
+    kinematics_data_copy = kinematics_data_copy.drop(indices_to_drop, axis=0)
+
+    return kinetics_data_copy, kinematics_data_copy
 
 
 def find_hold_indices(group, channel):
@@ -557,7 +592,7 @@ def find_hold_indices(group, channel):
     large_increments = np.where(increments > 20)[0]  # where the increment jumps
 
     if large_increments.size == 0:
-        neg_end = data.size-1
+        neg_end = data.size - 1
         pos_end = 0
     else:
         # this gives the index for the data point at the start and end of each flat region
@@ -584,6 +619,7 @@ def find_hold_indices(group, channel):
 
     # return just the end points. to return the start and end points for each flat zone, return the tuples instead
     return pos_end, neg_end
+
 
 def laxity_processing_2(groups, tdms_directory):
     """use the desired kinematics channels to filter the kinematics and kinetics data"""
@@ -649,7 +685,7 @@ def laxity_processing_2(groups, tdms_directory):
             # change_kinetics_reporting(kinetics_group_copy)  # this is external loads on tibia in tibia cs
             #
             # # report the kinetics as external loads applied to femur in tibia coordinate system
-             #kinetics_tibia_to_femur(kinetics_group_copy, kinematics_group_copy, chan)
+            # kinetics_tibia_to_femur(kinetics_group_copy, kinematics_group_copy, chan)
             #
             # # apply model offsets - Note this is done AFTER changing the signs of the data to register with model outputs.
             # apply_offsets(kinematics_group_copy, -model_offsets)
@@ -666,8 +702,10 @@ def laxity_processing_2(groups, tdms_directory):
             # cut_data(kinematics_group_copy, kinematics_NaN_indices)
 
             # processed data this will be used to generate models replicating experiment
-            all_laxity_kinetics_dfs.append(generate_dataframes(kinetics_group_copy, 'Applied Load (' + channel_units + ')'))
-            all_laxity_kinematics_dfs.append(generate_dataframes(kinematics_group_copy, 'Applied Load (' + channel_units + ')'))
+            all_laxity_kinetics_dfs.append(
+                generate_dataframes(kinetics_group_copy, 'Applied Load (' + channel_units + ')'))
+            all_laxity_kinematics_dfs.append(
+                generate_dataframes(kinematics_group_copy, 'Applied Load (' + channel_units + ')'))
 
     laxity_kinetics_df = pd.concat(all_laxity_kinetics_dfs)
     laxity_kinematics_df = pd.concat(all_laxity_kinematics_dfs)
@@ -742,6 +780,7 @@ def passive_flexion_processing_2(groups, tdms_directory):
 
     return flexion_kinetics_df, flexion_kinematics_df
 
+
 def process_tdms_files(file_directory):
     # sort through files, label them as the state file or tdms file
     tdms_files = []
@@ -765,6 +804,7 @@ def process_tdms_files(file_directory):
 
     # store all the data together for plotting/visual analysis purpose
     all_data = []
+    read_files = []
     all_kinematics_dfs = []
     all_kinetics_dfs = []
 
@@ -784,8 +824,14 @@ def process_tdms_files(file_directory):
 
             flexion_kinetics_df, flexion_kinematics_df = passive_flexion_processing_2(groups, file_directory)
 
-            print(flexion_kinetics_df)
-            print(flexion_kinematics_df)
+            # Append the filename to the read files directory
+            read_files.append(file)
+
+            # Set the file directory as a secondary index for the dataframe (for graphing purposes)
+            flexion_kinetics_df.set_index(np.full(flexion_kinetics_df.shape[0], file),
+                                          inplace=True, append=True, drop=True)
+            flexion_kinematics_df.set_index(np.full(flexion_kinematics_df.shape[0], file),
+                                            inplace=True, append=True, drop=True)
 
             all_kinetics_dfs.append(flexion_kinetics_df)
             all_kinematics_dfs.append(flexion_kinematics_df)
@@ -801,36 +847,97 @@ def process_tdms_files(file_directory):
 
             laxity_kinetics_df, laxity_kinematics_df = laxity_processing_2(groups, file_directory)
 
+            # Append the filename to the read files directory
+            read_files.append(file)
+
+            # Insert the filename as a
             all_kinetics_dfs.append(laxity_kinetics_df)
             all_kinematics_dfs.append(laxity_kinematics_df)
+
+            # Set the file directory as a secondary index for the dataframe (for graphing purposes)
+
+            laxity_kinetics_df.set_index(np.full(laxity_kinetics_df.shape[0], file),
+                                          inplace=True, append=True, drop=True)
+            laxity_kinematics_df.set_index(np.full(laxity_kinetics_df.shape[0], file),
+                                          inplace=True, append=True, drop=True)
 
             # pass
 
     kinetics_df = pd.concat(all_kinetics_dfs)
     kinematics_df = pd.concat(all_kinematics_dfs)
 
+    # Plot the data using the cleaned dataframes
+    clean_kinetics_df, clean_kinematics_df = clean_dataframes(kinetics_df, kinematics_df)
+    plot_data(clean_kinetics_df, clean_kinematics_df, read_files)
+
     return kinetics_df, kinematics_df
 
 
-if __name__ == "__main__":
+def plot_data(kinetics_data, kinematics_data, files):
+    """Plot the columns of the kinetics and kinematics data in a 6x6 graph matrix"""
 
+    # Uses matplotlib to graph given data
+    print("Generating plots... This may take a moment")
+
+    plt.close('all')
+    font = {'family': 'calibri',
+            'weight': 'bold',
+            'size': 12, }
+    fig, axs = plt.subplots(len(kinetics_data.columns.values), len(kinematics_data.columns.values),
+                            figsize=(25, 15))
+    x_data, y_data = kinetics_data, kinematics_data
+
+    for file in files:
+        x_chunk = x_data.xs(file, level=1, axis=0, drop_level=False)
+        y_chunk = y_data.xs(file, level=1, axis=0, drop_level=False)
+        for y_idx, y_col in enumerate(y_chunk.columns.values):
+            for x_idx, x_col in enumerate(x_chunk.columns.values):
+                axs[y_idx, x_idx].scatter(x_chunk[x_col], y_chunk[y_col], s=0.7, label=file)
+
+    leg = plt.legend(bbox_to_anchor=(1, 1), bbox_transform=plt.gcf().transFigure)
+    for ax in axs.flat:
+        ax.xaxis.set_major_locator(plt.MaxNLocator(6))
+        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(7))
+        ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+
+    # Set column labels
+    for x_idx, x_col in enumerate(x_data.columns.values):
+        axs[-1, x_idx].set_xlabel(x_col, fontdict=font)
+    for y_idx, y_col in enumerate(y_data.columns.values):
+        axs[y_idx, 0].set_ylabel(y_col, fontdict=font)
+
+    plt.tight_layout()
+    #fig.canvas.set_window_title(self.data_pkg_name)
+    current_directory = os.path.dirname(os.path.realpath(__file__))
+    image_path = current_directory + "_graphs.png"
+    #legend_path = path + "_graphs_legend.png"
+    plt.savefig(image_path, format="png", dpi=300, bbox_inches="tight")
+    #self.export_legend(leg, legend_path)
+    plt.show()
+    plt.close()
+
+if __name__ == "__main__":
     # main(sys.argv[-1])
 
     # tdms_directory = '/home/schwara2/Documents/Open_Knees/knee_hub/oks003/calibration/DataProcessing/'
     # Model_Properties = '/home/schwara2/Documents/Open_Knees/knee_hub/oks003/calibration/Registration/model/ModelProperties.xml'
-
-    #laxity and passive flexion processing for calibration
+    # laxity and passive flexion processing for calibration
     # all tdms file must be in the tdms_directory, not in subfolders. State file must also be in the same folder
+
     tdms_directory = r"C:\Users\techteam\Documents\Open-Knees-Data-Analysis\joint_mechanics-oks003\TibiofemoralJoint\KinematicsKinetics"
-    #Model_Properties = "C:\\Users\schwara2\Documents\Open_Knees\oks003_calibration\Registration\ModelProperties.xml"
+    # Model_Properties = "C:\\Users\schwara2\Documents\Open_Knees\oks003_calibration\Registration\ModelProperties.xml"
+
     kinetics_df, kinematics_df = process_tdms_files(tdms_directory)
-    print(kinematics_df)
-    print(kinetics_df)
+    cleaned_kinetics_df, cleaned_kinematics_df = clean_dataframes(kinetics_df, kinematics_df)
+
+    # Add a numerical index to the cleaned dataframes
+    cleaned_kinetics_df.set_index(np.arange(0, len(cleaned_kinetics_df.index)), append=True, inplace=True)
+    cleaned_kinematics_df.set_index(np.arange(0, len(cleaned_kinematics_df.index)), append=True, inplace=True)
 
     # # combined loading for benchmarking
     # tdms_directory ="C:\\Users\schwara2\Documents\Open_Knees\oks003_benchmarking\Data_Processing"
     # process_tdms_combined(tdms_directory)
-
 
 
 class file_opener:
