@@ -186,6 +186,25 @@ def crop_data(group, cropping_index):
     group.time = cropped_time
     group.processed = True
 
+
+def cut_data (group, cutting_index):
+    """ delete all the data in the group by the given by the cutting index"""
+
+    data = np.asarray(group.data)
+    cut_data = np.delete(data, cutting_index)
+
+    # for D in np.asarray(group.data):
+    #     cd = D[cutting_index]
+    #     cropped_data.append(cd)
+
+    time = np.asarray(group.time)
+    cut_time = np.delete(time, cutting_index)
+
+    # make changes to the group
+    group.data = cut_data
+    group.time = cut_time
+    group.processed = True
+
 def resampling_index(group, resampling_channel, increment, range, start=0.0):
 
     # chan_idx = group.channels.index(resampling_channel)
@@ -297,44 +316,6 @@ def resample_data(group, resamp_idx, resamp_intervals):
 #     model_offsets = np.array(model_offsets)
 #
 #     return model_offsets
-
-
-def find_hold_indices(group, channel):
-    """ find the indices where the desired kinetics load was held steady on the channel"""
-
-    data = np.asarray(group.data[channel])
-    time = group.time[channel]
-    tol = 1e-3
-
-    change = np.abs(data[:-1] - data[1:])
-    small_changes = np.where(change < tol)[0]  # where the data is stable - ie force was held
-    increments = np.abs(small_changes[:-1] - small_changes[1:])  # how many indices between the stable points
-    large_increments = np.where(increments > 20)[0]  # where the increment jumps
-
-    # this gives the index for the data point at the start and end of each flat region
-    index_end = small_changes[large_increments] + 1
-    index_start = small_changes[large_increments + 1] + 1
-
-    # final "start" point is not relevant - it is when the curve returns to zero after loading is completed
-    index_start = index_start[:-1]
-
-    # create a "fake" start point for the first end point - this is the zero load
-    # check length of other hold period
-    other_len = index_end[1] - index_start[0]
-    index_start = np.insert(index_start, 0, index_end[0] - other_len)
-
-    # split the indices in half - positive and negative loading
-    idx_split = int(len(index_end) / 2)
-    pos_end = index_end[:idx_split]
-    neg_end = index_end[idx_split:]
-    pos_start = index_start[:idx_split]
-    neg_start = index_start[idx_split:]
-
-    pos_tuples = list(zip(pos_start, pos_end))
-    neg_tuples = list(zip(neg_start, neg_end))
-
-    # return just the end points. to return the start and end points for each flat zone, return the tuples instead
-    return pos_end, neg_end
 
 # def change_kinematics_reporting(group):
 #     """flip the channels which are reported oppostie to the model"""
@@ -530,6 +511,80 @@ def generate_dataframes(group, x_label):
     return df
 
 
+def get_NaN_indices(group):
+    """Get all NaN indexes from the channel data"""
+
+    data = np.asarray(group.data)
+
+    # Tuple channel number and index location of NaN data points
+    indices_to_drop = list(np.argwhere(data == 0))
+    indices_to_drop = [index[1] for index in indices_to_drop]
+
+    #Nan_tuples = list(map(tuple, np.where(np.isnan(data))))
+    # indices_to_drop = []
+    # for index, tuple in enumerate(Nan_tuples):
+    #     indices_to_drop.append(tuple[2])
+
+    # To use when sorting through a dataframe
+
+    # var = data[channel].isnull()
+    # NaN_indeces = data[data[channel].isnull()].index.tolist()
+
+    return indices_to_drop
+
+# def clean_dataframes(kinetics_data, kinematics_data):
+#     """Clean the NaN indexes from the kinematics and kinetics data"""
+#
+#     assert isinstance(kinetics_data, pd.DataFrame)
+#     assert isinstance(kinematics_data, pd.DataFrame)
+#     indexes_to_drop = []
+#     for (x_columnName, x_columnData), (y_columnName, y_columnData) in zip(x_df.iteritems(), y_df.iteritems()):
+#         indexes_to_drop.extend(x_df[x_df[x_columnName].isnull()].index.tolist())
+#         indexes_to_drop.extend(y_df[y_df[y_columnName].isnull()].index.tolist())
+#     return x_df.drop(indexes_to_drop), y_df.drop(indexes_to_drop)
+
+
+def find_hold_indices(group, channel):
+    """ find the indices where the desired kinetics load was held steady on the channel"""
+
+    data = np.asarray(group.data[channel])
+    time = group.time[channel]
+    tol = 1e-3
+
+    change = np.abs(data[:-1] - data[1:])
+    small_changes = np.where(change < tol)[0]  # where the data is stable - ie force was held
+    increments = np.abs(small_changes[:-1] - small_changes[1:])  # how many indices between the stable points
+    large_increments = np.where(increments > 20)[0]  # where the increment jumps
+
+    if large_increments.size == 0:
+        neg_end = data.size-1
+        pos_end = 0
+    else:
+        # this gives the index for the data point at the start and end of each flat region
+        index_end = small_changes[large_increments] + 1
+        index_start = small_changes[large_increments + 1] + 1
+
+        # final "start" point is not relevant - it is when the curve returns to zero after loading is completed
+        index_start = index_start[:-1]
+
+        # create a "fake" start point for the first end point - this is the zero load
+        # check length of other hold period
+        other_len = index_end[1] - index_start[0]
+        index_start = np.insert(index_start, 0, index_end[0] - other_len)
+
+        # split the indices in half - positive and negative loading
+        idx_split = int(len(index_end) / 2)
+        pos_end = index_end[:idx_split]
+        neg_end = index_end[idx_split:]
+        pos_start = index_start[:idx_split]
+        neg_start = index_start[idx_split:]
+
+        pos_tuples = list(zip(pos_start, pos_end))
+        neg_tuples = list(zip(neg_start, neg_end))
+
+    # return just the end points. to return the start and end points for each flat zone, return the tuples instead
+    return pos_end, neg_end
+
 def laxity_processing_2(groups, tdms_directory):
     """use the desired kinematics channels to filter the kinematics and kinetics data"""
 
@@ -599,6 +654,17 @@ def laxity_processing_2(groups, tdms_directory):
             # # apply model offsets - Note this is done AFTER changing the signs of the data to register with model outputs.
             # apply_offsets(kinematics_group_copy, -model_offsets)
 
+            # # Collect the indices across all channels where NaN values exist
+            # kinetics_NaN_indices = get_NaN_indices(kinetics_group_copy)
+            # kinematics_NaN_indices = get_NaN_indices(kinematics_group_copy)
+            # print(kinetics_NaN_indices)
+            # print(kinematics_NaN_indices)
+            #
+            # # Clear NaN indices from the given channel including NaN indices from other channels
+            #
+            # cut_data(kinetics_group_copy, kinetics_NaN_indices)
+            # cut_data(kinematics_group_copy, kinematics_NaN_indices)
+
             # processed data this will be used to generate models replicating experiment
             all_laxity_kinetics_dfs.append(generate_dataframes(kinetics_group_copy, 'Applied Load (' + channel_units + ')'))
             all_laxity_kinematics_dfs.append(generate_dataframes(kinematics_group_copy, 'Applied Load (' + channel_units + ')'))
@@ -621,8 +687,9 @@ def passive_flexion_processing_2(groups, tdms_directory):
     flexion_kinematics = kinematics_group.data[3]
     max_flex_idx = np.argmax(flexion_kinematics)
 
-    flex_crop_idx = np.arange(0, max_flex_idx)
     # ext_crop_idx = np.arange(max_flex_idx, len(flexion_kinematics)) # in case we need the extension points for something
+
+    flex_crop_idx = np.arange(0, max_flex_idx)
 
     # use only the flexion data
     crop_data(kinetics_group, flex_crop_idx)
@@ -636,6 +703,17 @@ def passive_flexion_processing_2(groups, tdms_directory):
     resamp_idx, resamp_intervals = resampling_index(kinematics_group, resampling_channel, increments, range)
     resample_data(kinematics_group, resamp_idx, resamp_intervals)
     resample_data(kinetics_group, resamp_idx, resamp_intervals)
+
+    # # Collect the indices across all channels where NaN values exist
+    # kinetics_NaN_indices = get_NaN_indices(kinetics_group)
+    # kinematics_NaN_indices = get_NaN_indices(kinematics_group)
+    # print(kinetics_NaN_indices)
+    # print(kinematics_NaN_indices)
+    #
+    #  # Clear NaN indices from the given channel including NaN indices from other channels
+    #
+    # cut_data(kinetics_group, kinetics_NaN_indices)
+    # cut_data(kinematics_group, kinematics_NaN_indices)
 
     # files for data representation
     # plot_groups("Passive_Flexion_Kinematics_in_JCS_experiment", kinematics_group, 'Flexion Angle (deg)',
@@ -727,9 +805,6 @@ def process_tdms_files(file_directory):
             all_kinematics_dfs.append(laxity_kinematics_df)
 
             # pass
-
-    print(all_kinematics_dfs)
-    print(all_kinetics_dfs)
 
     kinetics_df = pd.concat(all_kinetics_dfs)
     kinematics_df = pd.concat(all_kinematics_dfs)
