@@ -1,11 +1,61 @@
 import pandas as pd
-import os
+import numpy as np
 import tensorflow as tf
 import statistics
-from sklearn import linear_model
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.layers import Activation
+from keras.models import Sequential
+from sklearn import preprocessing, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
+from matplotlib import pyplot
 
+
+def generate_neural_network(kinetics_data, kinematics_data, kinematics_chl):
+    """Trains the whole kinetics dataframe and one kinematics channel and develops a neural network for the output"""
+
+    print("Generating neural network for " + kinematics_chl + " column...")
+    nonlinear_neural_network(kinetics_data, kinematics_data)
+
+
+def nonlinear_neural_network(X_data, y_data):
+    """Build a neural network net with 6 input nodes, 2 hidden layers, and 1 output node """
+
+    X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.25, random_state=3)
+
+    # New sequential network structure.
+    model = Sequential()
+
+    # Input layer with dimension 1 and hidden layer i with 6 neurons.
+    model.add(Dense(6, input_dim=1, activation='relu'))
+    # Dropout of 20% of the neurons and activation layer.
+    model.add(Dropout(.2))
+    model.add(Activation("linear"))
+    # Hidden layer j with 64 neurons plus activation layer.
+    model.add(Dense(64, activation='relu'))
+    model.add(Activation("linear"))
+    # Hidden layer k with 64 neurons.
+    model.add(Dense(64, activation='relu'))
+    # Output Layer.
+    model.add(Dense(1))
+
+    # Model is derived and compiled using mean square error as loss
+    # function, accuracy as metric and gradient descent optimizer.
+    model.compile(loss='mse', optimizer='adam', metrics=["accuracy"])
+
+    # Training model with train data. Fixed random seed:
+    np.random.seed(3)
+    model.fit(X_train, y_train, nb_epoch=256, batch_size=2, verbose=2)
+
+    # Predict response variable with new data
+    predicted = model.predict(X_test)
+
+    # Plot in blue color the predicted adata and in green color the
+    # actual data to verify visually the accuracy of the model.
+    pyplot.plot(y_data.inverse_transform(predicted), color="blue")
+    pyplot.plot(y_data.inverse_transform(y_test), color="green")
+    pyplot.show()
 
 class algorithm():
 
@@ -27,13 +77,13 @@ class algorithm():
             lr = linear_regression(self.x_data, self.y_data[y_columnName])
             self.list_of_regressions.append(lr)
 
-    # def generate_neural_networks(self):
-    #     print("Generating neural networks... This may take a moment")
-    #
-    #     # Loop through kinematics data columns and create nn object and append to nn array
-    #     for y_columnName in self.y_data.columns:
-    #         nn = neural_network(self.x_data, self.y_data[y_columnName], 1)
-    #         self.list_of_neural_networks.append(nn)
+    def generate_neural_networks(self):
+        print("Generating neural networks... This may take a moment")
+
+        # Loop through kinematics data columns and create nn object and append to nn array
+        for y_columnName in self.y_data.columns:
+            nn = neural_network(self.x_data, self.y_data[y_columnName], 1)
+            self.list_of_neural_networks.append(nn)
 
     def generate_one_column_nn (self, optimizer, y_columnName):
         print("Generating neural network for " + y_columnName + " column")
