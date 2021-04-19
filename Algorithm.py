@@ -1,61 +1,156 @@
 import pandas as pd
 import numpy as np
+import os
 import tensorflow as tf
 import statistics
 from keras.layers import Dense
 from keras.layers import Dropout
 from keras.layers import Activation
+from keras import callbacks
 from keras.models import Sequential
 from sklearn import preprocessing, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 
 
-def generate_neural_network(kinetics_data, kinematics_data, kinematics_chl):
-    """Trains the whole kinetics dataframe and one kinematics channel and develops a neural network for the output"""
+def train_test_neural_networks(kinetics_data, kinematics_data):
+    """Loops through the 6 kinematics channels and builds 6 neural networks"""
 
-    print("Generating neural network for " + kinematics_chl + " column...")
-    nonlinear_neural_network(kinetics_data, kinematics_data)
+    # Store the neural networks
+    all_neural_networks = []
+
+    # Loop through the kinematics channels and build a neural network with all kinetics channels as input
+    for channel in kinematics_data.columns:
+        print("Generating neural network for " + channel + " column...")
+        all_neural_networks.append(nonlinear_neural_network(kinetics_data, kinematics_data[channel], channel))
+
+    return all_neural_networks
 
 
-def nonlinear_neural_network(X_data, y_data):
+def nonlinear_neural_network(kinetics, kinematics, channel):
     """Build a neural network net with 6 input nodes, 2 hidden layers, and 1 output node """
 
-    X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.25, random_state=3)
+    # change the directory to the current director
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
+    #var_names = list(kinematics)
+    kinetics = kinetics.to_numpy()
+    kinematics = kinematics.to_numpy()
+
+    x_train, x_test, y_train, y_test = train_test_split(kinetics, kinematics, test_size=0.25, random_state=6)
 
     # New sequential network structure.
     model = Sequential()
 
-    # Input layer with dimension 1 and hidden layer i with 6 neurons.
-    model.add(Dense(6, input_dim=1, activation='relu'))
-    # Dropout of 20% of the neurons and activation layer.
-    model.add(Dropout(.2))
-    model.add(Activation("linear"))
-    # Hidden layer j with 64 neurons plus activation layer.
-    model.add(Dense(64, activation='relu'))
-    model.add(Activation("linear"))
-    # Hidden layer k with 64 neurons.
-    model.add(Dense(64, activation='relu'))
-    # Output Layer.
-    model.add(Dense(1))
+    # Input layer with input dimension 6 and hidden layer i with 100 neurons.
+    model.add(Dense(100, activation="tanh", input_dim=6))
+    # Hidden layer j with 50 neurons plus activation layer.
+    model.add(Dense(50, activation="tanh"))
+    # Hidden layer k with 28 neurons.
+    model.add(Dense(28, activation="tanh"))
+    # Output Layer
+    model.add(Dense(1, activation="linear"))
 
     # Model is derived and compiled using mean square error as loss
-    # function, accuracy as metric and gradient descent optimizer.
+    # # function, accuracy as metric and gradient descent optimizer.
     model.compile(loss='mse', optimizer='adam', metrics=["accuracy"])
 
-    # Training model with train data. Fixed random seed:
-    np.random.seed(3)
-    model.fit(X_train, y_train, nb_epoch=256, batch_size=2, verbose=2)
+    early_stopping = callbacks.EarlyStopping(monitor ="val_loss", mode ="min", patience=5,restore_best_weights=True)
 
-    # Predict response variable with new data
-    predicted = model.predict(X_test)
+    # Fit the model
+    np.random.seed(6)
+    model.fit(x_train, y_train, epochs=5000, batch_size=100,  verbose=2,
+              validation_data=(x_test, y_test), callbacks=early_stopping)
+    # Calculate predictions
+    PredTestSet = model.predict(x_train)
+    PredValSet = model.predict(x_test)
 
-    # Plot in blue color the predicted adata and in green color the
-    # actual data to verify visually the accuracy of the model.
-    pyplot.plot(y_data.inverse_transform(predicted), color="blue")
-    pyplot.plot(y_data.inverse_transform(y_test), color="green")
-    pyplot.show()
+    # Save predictions
+    np.savetxt("trainresults.csv", PredTestSet, delimiter=",")
+    np.savetxt("valresults.csv", PredValSet, delimiter=",")
+
+    # Plot actual vs predition for training set
+    TestResults = np.genfromtxt("trainresults.csv", delimiter=",")
+
+    # # evaluate the model
+    # scores = model.evaluate(X1, Y1, verbose=0)
+    # print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
+
+    # Compute R-Square value for training set
+    TestR2Value = r2_score(y_train, TestResults)
+    TestMSEValue = mean_squared_error(y_train, TestResults)
+    print("Training Set R-Square=", TestR2Value)
+    print("Training Set MSE=", TestMSEValue)
+
+    # Plot actual vs prediction for validation set
+    ValResults = np.genfromtxt("valresults.csv", delimiter=",")
+
+    # Compute R-Square value for validation set
+    ValR2Value = r2_score(y_test, ValResults)
+    ValmseValue = mean_squared_error(y_test, ValResults)
+
+    print("Validation Set R-Square=", ValR2Value)
+    print("Validation Set MSE=", ValmseValue)
+    model.save(r'OK_Data_Graphs/NN_Models/'+'_Flexion_flipped'+str(channel))
+
+    plt.plot(y_train,TestResults,'ro')
+
+    plt.xlabel('Actual', size = 24)
+    plt.ylabel('Predicted', size = 24)
+    plt.title(r'Training set: Flexion_flipped'+str(channel)+'\n\nR^2= '+str(TestR2Value)+', RMSE='+str(np.sqrt(TestMSEValue)), size=24)
+    # plt.title(r'Training set: Flexion_flipped'+'\n\nR^2= ' +str(TestR2Value)+ ', RMSE= '+ str(np.sqrt(TestMSEValue)), size = 24)
+    plt.savefig(r'OK_Data_Graphs/NN_Models/Training_Flexion_flipped'+str(channel), dpi="figure", bbox_inches="tight")
+    # plt.savefig(r'dat/NN_Models/Figures/Training_Flexion_flipped')
+    plt.show()
+
+    plt.plot(y_test,ValResults,'ro')
+    plt.xlabel('Actual', size = 24)
+    plt.ylabel('Predicted', size = 24)
+    plt.title('Validation set: Flexion_flipped'+str(channel)+'\n\nR^2= '+str(ValR2Value)+',RMSE= '+str(np.sqrt(ValmseValue)), size=24)
+    plt.savefig(r'OK_Data_Graphs/NN_Models/Validation_Flexion_flipped'+str(channel), dpi="figure", bbox_inches="tight")
+
+    # plt.title('Validation set: Flexion_flipped'+'\n\nR^2= ' +str(ValR2Value)+ ',RMSE= '+ str(np.sqrt(ValmseValue)), size = 24)
+    # plt.savefig('dat/NN_Models/Figures/Validation_Flexion_flipped')
+    plt.show()
+
+    # X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.25, random_state=3)
+    # y_train = y_train.to_frame()
+    # y_test = y_test.to_frame()
+    #
+    # # New sequential network structure.
+    # model = Sequential()
+    #
+    # # Input layer with dimension 6 and hidden layer i with 128 neurons.
+    # model.add(Dense(128, input_dim=6, activation='relu'))
+    # # Dropout of 20% of the neurons and activation layer.
+    # model.add(Dropout(.2))
+    # model.add(Activation("linear"))
+    # # Hidden layer j with 64 neurons plus activation layer.
+    # model.add(Dense(64, activation='relu'))
+    # model.add(Activation("linear"))
+    # # Hidden layer k with 64 neurons.
+    # model.add(Dense(64, activation='relu'))
+    # # Output Layer.
+    # model.add(Dense(1))
+    #
+    # # Model is derived and compiled using mean square error as loss
+    # # function, accuracy as metric and gradient descent optimizer.
+    # model.compile(loss='mse', optimizer='adam', metrics=["accuracy"])
+    #
+    # # Training model with train data. Fixed random seed:
+    # np.random.seed(3)
+    # model.fit(X_train, y_train, epochs=256, batch_size=2, verbose=2)
+    #
+    # # Predict response variable with new data
+    # predicted = model.predict(X_test)
+    #
+    # # Plot in blue color the predicted data and in green color the
+    # # actual data to verify visually the accuracy of the model.
+    # pyplot.plot(predicted, color="blue")
+    # pyplot.plot(y_test[channel].tolist(), color="green")
+    # fig.savefig(r"C:\Users\techteam\Documents\Open-Knees-Presentation-Material\", dpi="figure", bbox_inches=bbox)
+    # pyplot.show()
 
 class algorithm():
 
